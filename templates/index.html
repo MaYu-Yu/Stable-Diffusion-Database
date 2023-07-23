@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Prompt Database</title>
+    <!-- 引入 Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <style>
+        .noti {
+            display: none;
+            position: absolute;
+            top: 100%%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            font-size: 18px;
+            color: black;
+            background-color: yellow;
+        }
+    </style>
+</head>
+<body>
+    <div id="notification" class="noti"></div>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <h2 class="mt-4">選擇模組：</h2>
+                    <div class="input-group">
+                        <select id="module_name" class="form-control" onchange="getModuleData()">
+                            {% for module in modules %}
+                                <option>{{ module }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="input-group-append">
+                            <button class="btn btn-danger" onclick="deleteModule()">刪除當前模組</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <!-- 新增模組的表單 -->
+                <form onsubmit="return addModule()">
+                    <div class="form-group">
+                        <h2 class="mt-4">模組名稱：</h2>
+                        <div class="input-group">
+                            <input type="text" id="new_module_name" class="form-control" required>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary">新增模組</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <h3 class="mt-4">新增 Prompt：</h3>
+                    <div class="input-group">
+                        <input type="text" id="prompt_box" class="form-control">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" onclick="addWords('prompt_box')">新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <h3 class="mt-4">新增 Negative Prompt：</h3>
+                    <div class="input-group">
+                        <input type="text" id="negative_prompt_box" class="form-control">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" onclick="addWords('negative_prompt_box')">新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="word_list">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3 class="mt-4">Prompt：
+                        <button class="btn btn-primary mt-2" onclick="selectAllWords('prompt_words')">全選</button>
+                        <button class="btn btn-danger mt-2" onclick="deselectAllWords('prompt_words')">取消全選</button>
+                        <button type="button" class="trash-btn" onclick="toggleDeleteMode(this)">
+                            <img src="{{ url_for('static', filename='trash.png') }}" alt="trash" width="50" height="50">
+                        </button>
+                    </h3>
+                    <div id="prompt_words" class="btn-group-toggle" data-toggle="buttons">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="mt-4">Negative Prompt：
+                        <button class="btn btn-primary mt-2" onclick="selectAllWords('negative_prompt_words')">全選</button>
+                        <button class="btn btn-danger mt-2" onclick="deselectAllWords('negative_prompt_words')">取消全選</button>
+                        <button type="button" class="trash-btn" onclick="toggleDeleteMode(this)">
+                            <img src="{{ url_for('static', filename='trash.png') }}" alt="trash" width="50" height="50">
+                        </button>
+                    </h3>
+                    <div id="negative_prompt_words" class="btn-group-toggle" data-toggle="buttons">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="mt-4">Output Box：</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <h3 class="mt-4">Prompt：</h3>
+                    <div class="input-group">
+                        <input type="text" id="output_box_prompt" class="form-control" readonly>
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" onclick="copyOutput('output_box_prompt')">複製</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <h3 class="mt-4">Negative Prompt：</h3>
+                    <div class="input-group">
+                        <input type="text" id="output_box_negative_prompt" class="form-control" readonly>
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" onclick="copyOutput('output_box_negative_prompt')">複製</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 引入 Bootstrap 的 JavaScript 檔案 -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let deleteMode = false;
+        let originalBorderStyles = {}; // 新增用於儲存原本邊框樣式的物件
+        let promptWordsArray = []; // 儲存 Prompt 的陣列
+        let negativePromptWordsArray = []; // 儲存 Negative Prompt 的陣列
+
+        // 按下trash後進入刪除模式
+        function toggleDeleteMode() {
+            deleteMode = !deleteMode;
+            const trashBtn = document.querySelector('.trash-btn');
+            if (deleteMode) {
+                trashBtn.classList.add('active');
+                // 將所有符合條件的元素新增 CSS 效果
+                const elements = document.querySelectorAll('.btn.btn-outline-primary.mb-2');
+                elements.forEach((element) => {
+                    // 先儲存原本的邊框樣式
+                    originalBorderStyles[element.id] = element.style.border;
+                    element.style.border = '3px solid red';
+                });
+                showNotification('開啟刪除Prompt模式');
+            } else {
+                trashBtn.classList.remove('active');
+                // 將所有符合條件的元素恢復原本的樣式
+                const elements = document.querySelectorAll('.btn.btn-outline-primary.mb-2');
+                elements.forEach((element) => {
+                    // 從儲存的原本邊框樣式中取得並設定回去
+                    element.style.border = originalBorderStyles[element.id];
+                });
+                showNotification('關閉刪除Prompt模式');
+            }
+        }
+
+        function handleButtonClick(button) {
+            if (deleteMode) {
+                const module_name = document.getElementById('module_name').value;
+                const word_type = button.parentElement.id === 'prompt_words' ? 'prompt' : 'negative_prompt';
+                const word = button.getAttribute('data-word');
+        
+                // 移除畫面上的按鈕
+                button.remove();
+        
+                // 從相應的區域（「提示」或「負面提示」）移除單字
+                let wordsArray = word_type === 'prompt' ? promptWordsArray : negativePromptWordsArray;
+                const index = wordsArray.indexOf(word);
+                if (index !== -1) {
+                    wordsArray.splice(index, 1);
+                }
+        
+                // 更新輸出框以反映更改
+                const outputBoxId = word_type === 'prompt' ? 'output_box_prompt' : 'output_box_negative_prompt';
+                const outputBox = document.getElementById(outputBoxId);
+                outputBox.value = wordsArray.join(',');
+        
+                // 向伺服器發送請求以從資料庫中刪除該單字
+                fetch('/remove_word', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `module_name=${module_name}&word_type=${word_type}&word=${word}`,
+                })
+                .catch((error) => {
+                    console.error('刪除單字時發生錯誤:', error);
+                });
+            } else {
+                // 保留原始按鈕功能
+                toggleOutputBoxWord(button);
+            }
+        }        
+
+        function getModuleData() {
+            clearAll();
+            const module_name = document.getElementById('module_name').value;
+            fetch('/get_module_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `module_name=${module_name}`,
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 更新word_list區域顯示該模組的Prompt列表
+                const promptWordsDiv = document.getElementById('prompt_words');
+                const negativePromptWordsDiv = document.getElementById('negative_prompt_words');
+                promptWordsDiv.innerHTML = '';
+                negativePromptWordsDiv.innerHTML = '';
+        
+                for (const word of data.prompts) {
+                    const wordButton = document.createElement('button');
+                    wordButton.textContent = word;
+                    wordButton.setAttribute('data-word', word);
+                    wordButton.classList.add('btn', 'btn-outline-primary', 'mb-2'); // 修改這裡的類別
+                    wordButton.addEventListener('click', () => handleButtonClick(wordButton)); // 添加事件監聽器
+                    promptWordsDiv.appendChild(wordButton);
+                }
+        
+                for (const word of data.negative_prompts) {
+                    const wordButton = document.createElement('button');
+                    wordButton.textContent = word;
+                    wordButton.setAttribute('data-word', word);
+                    wordButton.classList.add('btn', 'btn-outline-primary', 'mb-2'); // 修改這裡的類別
+                    wordButton.addEventListener('click', () => handleButtonClick(wordButton)); // 添加事件監聽器
+                    negativePromptWordsDiv.appendChild(wordButton);
+                }
+        
+                // 增加間距
+                const promptButtons = promptWordsDiv.getElementsByTagName('button');
+                for (const button of promptButtons) {
+                    button.style.marginRight = '10px';
+                }
+        
+                const negativePromptButtons = negativePromptWordsDiv.getElementsByTagName('button');
+                for (const button of negativePromptButtons) {
+                    button.style.marginRight = '10px';
+                }
+            });
+            showNotification('已開啟' + module_name + '模組');
+        }        
+        function getModuleNames() {
+            fetch('/get_module_names')
+            .then(response => response.json())
+            .then(data => {
+                const moduleSelect = document.getElementById('module_name');
+                moduleSelect.innerHTML = '';
+        
+                for (const module of data) {
+                    const option = document.createElement('option');
+                    option.textContent = module;
+                    moduleSelect.appendChild(option);
+                }
+            });
+        }     
+
+        // Prompt按鈕功能
+        function toggleOutputBoxWord(button) {
+            const word = button.getAttribute('data-word');
+            const outputBoxId = button.parentElement.id === 'prompt_words' ? 'output_box_prompt' : 'output_box_negative_prompt';
+            const outputBox = document.getElementById(outputBoxId);
+
+            // 根據 Output Box 的 ID 選擇要操作的陣列
+            let wordsArray = outputBoxId === 'output_box_prompt' ? promptWordsArray : negativePromptWordsArray;
+
+            const index = wordsArray.indexOf(word);
+            if (index === -1) {
+                wordsArray.push(word);
+            } else {
+                wordsArray.splice(index, 1);
+            }
+
+            // 更新 Output Box 顯示目前陣列中的Prompt
+            outputBox.value = wordsArray.join(',');
+        }
+
+        function addWords(input_box_id) {
+            const module_name = document.getElementById('module_name').value;
+            const word_type = input_box_id === 'prompt_box' ? 'prompt' : 'negative_prompt';
+            const words = document.getElementById(input_box_id).value;
+            fetch('/add_words', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `module_name=${module_name}&word_type=${word_type}&words=${words}`,
+            })
+            .then(() => {
+                // 新增Prompt後更新模組的Prompt列表
+                getModuleData();
+                showNotification('已新增' + words);
+            });
+        }
+
+        // 全選
+        function selectAllWords(divId) {
+            const wordButtons = document.getElementById(divId).getElementsByTagName('button');
+            for (const button of wordButtons) {
+                if (!button.classList.contains('active')) {
+                    button.classList.add('active');
+                    toggleOutputBoxWord(button); // 更新相應的輸出框
+                }
+            }
+        }
+        // 取消全選
+        function deselectAllWords(divId) {
+            const wordButtons = document.getElementById(divId).getElementsByTagName('button');
+            for (const button of wordButtons) {
+                if (button.classList.contains('active')) {
+                    button.classList.remove('active');
+                    toggleOutputBoxWord(button); // 更新相應的輸出框
+                }
+            }
+        }
+        
+        function addModule() {
+            const newModuleName = document.getElementById('new_module_name').value;
+            fetch('/add_module', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `module_name=${newModuleName}`,
+            })
+            .then(() => {
+                // 新增模組後重新載入頁面
+                location.reload();
+            });
+    
+            return false; // 阻止表單提交
+        }
+
+        function deleteModule() {
+            const moduleSelect = document.getElementById('module_name');
+            const module_name = moduleSelect.value;
+            fetch('/delete_module', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `module_name=${module_name}`,
+            })
+            .then(() => {
+                // 刪除模組後重新載入頁面
+                location.reload();
+            });
+        }
+
+        function showNotification(message) {
+            const notificationElement = document.getElementById('notification');
+            notificationElement.textContent = message;
+            notificationElement.style.display = 'block';
+        
+            // 設定 幾秒後隱藏元素
+            setTimeout(() => {
+                notificationElement.style.display = 'none';
+            }, 1000);
+        }
+    
+        function copyOutput(outputBoxId) {
+            const outputBox = document.getElementById(outputBoxId);
+            outputBox.select();
+            document.execCommand('copy');
+    
+            // 顯示文字提示
+            if (outputBoxId === 'output_box_prompt') {
+                showNotification('Prompt已複製到剪貼簿');
+            } else if (outputBoxId === 'output_box_negative_prompt') {
+                showNotification('Negative Prompt已複製到剪貼簿');
+            }
+        }
+        function clearAll() {
+            // 清空 output_box_prompt 和 output_box_negative_prompt 的值
+            document.getElementById('output_box_prompt').value = '';
+            document.getElementById('output_box_negative_prompt').value = '';
+        
+            // Correct the variable names to clear the arrays
+            promptWordsArray = [];
+            negativePromptWordsArray = [];
+        
+            // 移除所有帶有 active 類的按鈕元素的 active 類
+            const activeButtons = document.querySelectorAll('.btn.active');
+            activeButtons.forEach((button) => {
+                button.classList.remove('active');
+            });
+        
+            // 將 deleteMode 設為 false
+            deleteMode = false;
+        }
+
+        // 在頁面載入時獲取預設模組的Prompt列表
+        getModuleData();
+
+        // 在頁面載入時獲取模組列表
+        getModuleNames();
+    </script>
+</body>
+</html>
