@@ -7,7 +7,7 @@
     ### 環境架設
     - git clone https://github.com/MaYu-Yu/AI-Stable-Diffusion-DB.git
     - pip freeze > requirements.txt
-    ### 開啟WEBUI
+    ### 開啟WebUI
     - python app.py
     - 進入網頁: http://127.0.0.1:5000
     - civitai 網站來找自己喜歡的圖片類型之模組
