@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Stable Diffusion WebUI 教學
 
 * ## 架設環境
@@ -14,3 +15,7 @@
 - Stable Diffusion - https://github.com/CompVis/stable-diffusion, https://github.com/CompVis/taming-transformers, https://github.com/AUTOMATIC1111/stable-diffusion-webui
 - 圖片參考 - https://civitai.com/models/36520?modelVersionId=76907
 - 美觀 - https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css
+=======
+# AI-Stable-Diffusion-DB
+For save AI prompt 
+>>>>>>> 39d52a9faf3b0fce9a41d178c700e3218b2599d2
