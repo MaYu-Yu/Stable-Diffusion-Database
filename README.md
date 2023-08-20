@@ -17,9 +17,8 @@
     ### 選擇一鍵匯入可以從civitai直接套用所有設定
   ![1](https://github.com/MaYu-Yu/AI-Stable-Diffusion-DB/assets/59922656/99904731-3168-4f72-991c-446d2c7d0702)
     ### 也可以各部分個別輸入(請遵守stable diffusion格式)
-  ![2](https://github.com/MaYu-Yu/AI-Stable-Diffusion-DB/assets/59922656/1641d8a2-f686-46aa-bff8-6caf09dd83d7)
+  ![2](https://github.com/MaYu-Yu/AI-Stable-Diffusion-DB/assets/59922656/d9abd898-0d07-4beb-a097-a13aaccb9147)
     ### 選取上方小方塊就會在下方Output Box出現，直接複製就能用!一鍵複製可以如同civitai複製整張參數，到Stable-Diffusion WebUI直接貼在prompt區就好
-  ![3](https://github.com/MaYu-Yu/AI-Stable-Diffusion-DB/assets/59922656/7e0299cb-2d56-4325-bc50-f4e9cc18f930)
 * ## 參考網站
 - Stable Diffusion - https://github.com/CompVis/stable-diffusion, https://github.com/CompVis/taming-transformers, https://github.com/AUTOMATIC1111/stable-diffusion-webui
 - 圖片參考 - https://civitai.com/models/36520?modelVersionId=76907

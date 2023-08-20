@@ -43,13 +43,18 @@
             </div>
           </form>
         </div>
+
         <div class="col-md-6">
           <div class="form-group">
             <h2 class="mt-4">選擇圖片：</h2>
             <div class="input-group">
               <select id="picture_name" class="form-control" onchange="getPictureData()">
                 {% for name in picture_names %}
-                  <option value="{{ name }}">{{ name }}</option>
+                    {% if name == selected_picture %}
+                      <option value="{{ name }}" selected>{{ name }}</option>
+                    {% else %}
+                      <option value="{{ name }}">{{ name }}</option>
+                    {% endif %}
                 {% endfor %}
               </select>
               <div class="input-group-append">
@@ -194,16 +199,22 @@
       let originalBorderStyles = {} // 更新用於儲存原本邊框樣式的物件
       let promptWordsArray = [] // 儲存 Prompt 的陣列
       let negativePromptWordsArray = [] // 儲存 Negative Prompt 的陣列
-      
-      // 相對應 PARA_COL_NAMES 、 paraId 
-      const para_json = {{ PARA_COL_NAMES | tojson }};
-      const PARA_COL_NAMES = {};
-      for (const key in para_json) {
-          if (para_json.hasOwnProperty(key)) {
-              const spacedKey = key.replace(/_/g, ' '); 
-              PARA_COL_NAMES[spacedKey] = para_json[key];
-          }
-      }  
+      //  相對應 PARA_COL_NAMES 、 paraValues 
+      const PARA_COL_NAMES = {
+        'Steps': 'para-1',
+        'Size': 'para-2',
+        'Seed': 'para-3',
+        'Model': 'para-4',
+        'Version': 'para-5',
+        'Sampler': 'para-6',
+        'CFG scale': 'para-7',
+        'Clip skip': 'para-8',
+        'Model hash': 'para-9',
+        'Hires steps': 'para-10',
+        'Hires upscale': 'para-11',
+        'Hires upscaler': 'para-12',
+        'Denoising strength': 'para-13'
+      }
 
       // 上傳圖片時監聽並同時上傳picture_name
       function getSelectedPicture() {
@@ -460,12 +471,12 @@
           showNotification('已新增 ' + word_type)
         })
       }
-      
+      // 顯示資料庫參數輸入框內容
       function updateParaInputs(para_words) {
         const paraKeys = Object.keys(PARA_COL_NAMES);
         for (let i = 0; i < paraKeys.length; i++) {
-          const inputId = `para-${i + 1}`; // 将+1移到这里
-          document.getElementById(inputId).value = para_words[i] || ''; // 使用条件运算符来确保值不为null
+          const inputId = `para-${i + 1}`; 
+          document.getElementById(inputId).value = para_words[i] || '';
         }
       }
       // 參數值更新
@@ -492,9 +503,6 @@
           .then((data) => {
             showNotification('更新參數成功')
           })
-          .catch((error) => {
-            showNotification('更新參數失敗')
-          })
       }
       
       // 一鍵匯入
@@ -518,19 +526,19 @@
             document.getElementById('negative_prompt_box').value = data.negative_words
       
             // 根据 para_words 的键值填充对应的输入框
-            let i = 1
+            let i = 0
             for (const key in data.para_words) {
+              i += 1
               if (data.para_words.hasOwnProperty(key)) {
                 document.getElementById(`para-${i}`).value = data.para_words[key]
-                i += 1
               }
             }
+
             document.getElementById(input_box_id).value = ''
             //貼上後新增
             document.getElementById('add_negative_prompt_btn').click()
             document.getElementById('add_prompt_btn').click()
             document.getElementById('update_para_btn').click()
-            showNotification('已貼上所有參數')
           })
       }
       

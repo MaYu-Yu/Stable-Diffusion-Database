@@ -71,22 +71,25 @@ def init_db():
             cursor.execute('INSERT INTO pictures (picture_name) VALUES (?)', ('default',)) # 預設一張圖片 以防出錯
 
         conn.commit()
+        
+def get_picture_names():
+    with connect_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT picture_name FROM pictures')
+        picture_names = [row[0] for row in cursor.fetchall()]
+        conn.commit()
+    return picture_names
 
 # 初始化資料庫
 @app.before_request
 def setup():
     init_db()
-
+    
 # 主頁
 @app.route('/')
 def index():
-    with connect_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT picture_name FROM pictures')
-        picture_names = [row[0] for row in cursor.fetchall()]
-        
-        cursor.execute('SELECT picture_path FROM pictures')
-    return render_template('index.html', picture_names=picture_names, PARA_COL_NAMES=PARA_COL_NAMES)
+    picture_names = get_picture_names()
+    return render_template('index.html', picture_names=picture_names, selected_picture='')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -106,8 +109,8 @@ def upload():
                 cursor = conn.cursor()
                 cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (filename, selected_picture))
                 conn.commit()
-
-            return render_template('index.html', picture_names=[selected_picture])
+            picture_names = get_picture_names()
+            return render_template('index.html', picture_names=picture_names, selected_picture=selected_picture)
     return redirect(url_for('index'))
 
 # 獲取圖片資料
@@ -203,10 +206,8 @@ def add_picture():
             picture_name = unique_picture_name
         cursor.execute('INSERT INTO pictures (picture_name) VALUES (?)', (picture_name,))
         conn.commit()
-    return jsonify({
-        'picture_name':picture_name
-    })
-    
+    picture_names = get_picture_names()
+    return render_template('index.html', picture_names=picture_names, selected_picture=picture_name)
 # 刪除圖片
 @app.route('/delete_picture', methods=['POST'])
 def delete_picture():
@@ -220,16 +221,15 @@ def delete_picture():
         cursor.execute('DELETE FROM para WHERE picture_name = ?', (picture_name,))
         cursor.execute('DELETE FROM pictures WHERE picture_name = ?', (picture_name,))
         conn.commit()
-        
-        if filepath is not None:
-            try:
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filepath)) # 刪除圖片
-            except OSError:
-                # 刪除失敗
-                pass
-        else:
-            return 'Picture not found'
-    return 'success'
+
+    if filepath is not None:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filepath)) # 刪除圖片
+        except OSError:
+            # 刪除失敗
+            pass
+    picture_names = get_picture_names()
+    return render_template('index.html', picture_names=picture_names, selected_picture='')
 
 # Prompt字串整理
 def word_split(text):
@@ -306,12 +306,13 @@ def remove_word():
 @app.route('/import_words', methods=['POST'])
 def import_words():
     words = request.form['words']
+    prompt_words = ""
+    negative_words = []
+    para_words = {}
+    para_values = []
+    non_para_words = []
+    para_part = ""
     if words:  
-        prompt_words = ""
-        negative_words = []
-        para_words = {}
-        non_para_words = []
-        
         # 分成四部分 Prompt、Negative Prompt、參數、非參數值
         if "Negative prompt:" in words:
             prompt_part, negative_part = words.split("Negative prompt:", 1)
@@ -323,9 +324,6 @@ def import_words():
                 para_part = "Steps:" + para_part
                 para_part = para_part.split(',')
                 
-                para_words = {}
-                non_para_words = []
-
                 special_characters = '()<>{}[]' # 可能出現符號
                 for item in para_part:
                     if ':' in item and not any(char in item for char in special_characters.replace(':', '')):
@@ -334,28 +332,38 @@ def import_words():
                         
                     else:
                         non_para_words.append(item)
-                para_values = []
+            else:
+                negative_words = word_split(words)
+        else:
+            if "Steps:" in words:
+                prompt_words, para_part = words.split("Steps:", 1)
+                prompt_words = word_split(prompt_words)
+                para_part = "Steps:" + para_part
+                para_part = para_part.split(',')
+            else:
+                prompt_words = word_split(words)
                 
-                # 前端不需要key
-                for col_name in PARA_COL_NAMES:
-                    col_name = col_name.replace('_', ' ')
-                    if col_name in para_words:
-                        para_values.append(para_words[col_name])
-                    else:
-                        para_values.append(None) 
-                        
-        return jsonify({
-            'prompt_words': prompt_words,
-            'negative_words': negative_words,
-            'para_words': para_values,
-            'non_para_words': non_para_words
-        })
-        
+        special_characters = '()<>{}[]' # 可能出現符號
+        for item in para_part:
+            if ':' in item and not any(char in item for char in special_characters.replace(':', '')):
+                key, value = item.split(':', 1) # 參數輸入類型 key:value 
+                para_words[key.strip()] = value.strip()
+                
+            else:
+                non_para_words.append(item)
+            # 前端不需要key
+        for col_name in PARA_COL_NAMES:
+            col_name = col_name.replace('_', ' ')
+            if col_name in para_words:
+                para_values.append(para_words[col_name])
+            else:
+                para_values.append(None) 
+                
     return jsonify({
-        'prompt_words': '',
-        'negative_words': [],
-        'para_words': {},
-        'non_para_words': []
+        'prompt_words': prompt_words,
+        'negative_words': negative_words,
+        'para_words': para_values,
+        'non_para_words': non_para_words
     })
 
 if __name__ == '__main__':
