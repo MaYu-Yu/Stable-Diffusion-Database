@@ -15,6 +15,10 @@
         font-weight: bold;
         display: none;
       }
+      #top_picture {
+        max-width: 100%; 
+        height: auto; 
+    }    
     </style>
   </head>
   <body>
@@ -23,7 +27,7 @@
       <div class="row">
         <div class="col-md-6">
           <div class="image-container">
-            <img id="top_picture" data-picture-path="" alt="" width="400" height="450" />
+            <img id="top_picture" data-picture-path="" alt="" width="400" height="400" />
           </div>
         </div>
         <div class="col-md-6">
@@ -39,7 +43,6 @@
             </div>
           </form>
         </div>
-
         <div class="col-md-6">
           <div class="form-group">
             <h2 class="mt-4">選擇圖片：</h2>
@@ -118,116 +121,7 @@
           </h3>
         </div>
 
-        <div class="row">
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Steps</b>
-              <div class="input-group">
-                <input type="text" id="para-1" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Size</b>
-              <div class="input-group">
-                <input type="text" id="para-2" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Seed</b>
-              <div class="input-group">
-                <input type="text" id="para-3" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Model</b>
-              <div class="input-group">
-                <input type="text" id="para-4" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Version</b>
-              <div class="input-group">
-                <input type="text" id="para-5" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Sampler</b>
-              <div class="input-group">
-                <input type="text" id="para-6" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>CFG scale</b>
-              <div class="input-group">
-                <input type="text" id="para-7" class="form-control" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Clip skip</b>
-              <div class="input-group">
-                <input type="text" id="para-8" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Model hash</b>
-              <div class="input-group">
-                <input type="text" id="para-9" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Hires steps</b>
-              <div class="input-group">
-                <input type="text" id="para-10" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Hires upscale</b>
-              <div class="input-group">
-                <input type="text" id="para-11" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Hires upscaler</b>
-              <div class="input-group">
-                <input type="text" id="para-12" class="form-control" />
-              </div>
-            </div>
-          </div>
-          <div class="col-md-2">
-            <div class="form-group">
-              <b>Denoising strength</b>
-              <div class="input-group">
-                <input type="text" id="para-13" class="form-control" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="parafield"></div>
 
     <div id="word_list">
       <div class="row">
@@ -300,8 +194,18 @@
       let originalBorderStyles = {} // 更新用於儲存原本邊框樣式的物件
       let promptWordsArray = [] // 儲存 Prompt 的陣列
       let negativePromptWordsArray = [] // 儲存 Negative Prompt 的陣列
-      // 上傳圖片時監聽並同時上傳picture_name
       
+      // 相對應 PARA_COL_NAMES 、 paraId 
+      const para_json = {{ PARA_COL_NAMES | tojson }};
+      const PARA_COL_NAMES = {};
+      for (const key in para_json) {
+          if (para_json.hasOwnProperty(key)) {
+              const spacedKey = key.replace(/_/g, ' '); 
+              PARA_COL_NAMES[spacedKey] = para_json[key];
+          }
+      }  
+
+      // 上傳圖片時監聽並同時上傳picture_name
       function getSelectedPicture() {
         const pictureSelect = document.getElementById('picture_name')
         const hiddenInput = document.getElementById('selected_picture')
@@ -317,7 +221,6 @@
           displayNextNotification()
         }
       }
-      
       function displayNextNotification() {
         if (notificationQueue.length > 0) {
           const notificationElement = document.getElementById('notification')
@@ -347,7 +250,7 @@
             originalBorderStyles[element.id] = element.style.border
             element.style.border = '3px solid red'
           })
-          showNotification('開啟刪除Prompt模式')
+          showNotification('刪除Prompt模式 啟動!')
         } else {
           trashBtn.classList.remove('active')
           // 將所有符合條件的元素恢復原本的樣式
@@ -356,16 +259,15 @@
             // 從儲存的原本邊框樣式中取得並設定回去
             element.style.border = originalBorderStyles[element.id]
           })
-          showNotification('關閉刪除Prompt模式')
+          showNotification('刪除Prompt模式 關閉!')
         }
       }
-      
+      // 刪除模式動作
       function handleButtonClick(button) {
         if (deleteMode) {
           const picture_name = document.getElementById('picture_name').value
           const word_type = button.parentElement.id === 'prompt_words' ? 'prompt' : 'negative_prompt'
           const word = button.getAttribute('data-word')
-      
           // 移除畫面上的按鈕
           button.remove()
       
@@ -389,14 +291,78 @@
             },
             body: `picture_name=${picture_name}&word_type=${word_type}&word=${word}`
           }).catch((error) => {
-            console.error('刪除單字時發生錯誤:', error)
+            showNotification('刪除單字時發生錯誤:', error)
           })
+          .then((data) => {
+            showNotification('更新參數成功')
+          })
+
         } else {
           // 保留原始按鈕功能
           toggleOutputBoxWord(button)
         }
       }
+
+      // 動態生成parafield
+      function generateParaField(parafieldId) {
+        const parafield = document.getElementById(parafieldId);
       
+        if (!parafield) {
+          console.error(`Container with ID '${parafieldId}' not found.`);
+          return;
+        }
+      
+        let fieldCount = 0;
+        let currentRow = null;
+      
+        for (const key in PARA_COL_NAMES) {
+          if (fieldCount % 6 === 0) {
+            // 建立新的 <div class="row">
+            currentRow = document.createElement('div');
+            currentRow.className = 'row';
+            parafield.appendChild(currentRow);
+          }
+      
+          // 建立 <div class="col-md-2">
+          const colDiv = document.createElement('div');
+          colDiv.className = 'col-md-2';
+      
+          // 建立 <div class="form-group">
+          const formGroupDiv = document.createElement('div');
+          formGroupDiv.className = 'form-group';
+      
+          // 建立 <b> 
+          const boldElement = document.createElement('b');
+          boldElement.textContent = key;
+      
+          // 建立 <div class="input-group">
+          const inputGroupDiv = document.createElement('div');
+          inputGroupDiv.className = 'input-group';
+      
+          // 建立 <input type="text" id="para-x" class="form-control" />
+          const inputElement = document.createElement('input');
+          inputElement.type = 'text';
+          inputElement.id = PARA_COL_NAMES[key];
+          inputElement.className = 'form-control';
+      
+          // 組裝元素
+          inputGroupDiv.appendChild(inputElement);
+          formGroupDiv.appendChild(boldElement);
+          formGroupDiv.appendChild(inputGroupDiv);
+          colDiv.appendChild(formGroupDiv);
+          currentRow.appendChild(colDiv);
+      
+          fieldCount++;
+        }
+      }
+      // 增加按鈕間距
+      function addMarginToButtons(buttonsDiv) {
+        const buttons = buttonsDiv.getElementsByTagName('button')
+        for (const button of buttons) {
+          button.style.marginRight = '10px'
+        }
+      }
+      // 獲取顯示的資料
       function getPictureData() {
         clearAll()
         const picture_name = document.getElementById('picture_name').value
@@ -409,7 +375,7 @@
         })
           .then((response) => response.json())
           .then((data) => {
-            // 更新圖片
+            // 更新顯示圖片
             const image = document.getElementById('top_picture')
             const picturePath = data.picture_path
             const imagePath = "{{ url_for('static', filename='img/') }}" + picturePath
@@ -436,23 +402,19 @@
             addMarginToButtons(negativePromptWordsDiv)
       
             const selectElement = document.getElementById('picture_name')
-            // 遍历<select>元素中的选项
+            // 遍歷<select>元素
             for (let i = 0; i < selectElement.options.length; i++) {
               const option = selectElement.options[i]
-      
-              // 检查选项的值是否与所选值匹配
               if (option.value === picture_name) {
-                // 找到匹配的选项，将其设置为选中状态
                 option.selected = true
-                break // 找到匹配项后，退出循环
+                break 
               }
             }
-      
             // 更新参数的输入框
             updateParaInputs(data.para_words)
           })
       }
-      
+      // 自動生成btn
       function createWordButton(word) {
         const wordButton = document.createElement('button')
         wordButton.textContent = word
@@ -461,22 +423,6 @@
         wordButton.addEventListener('click', () => handleButtonClick(wordButton)) // 添加事件監聽器
         return wordButton
       }
-      
-      function addMarginToButtons(buttonsDiv) {
-        const buttons = buttonsDiv.getElementsByTagName('button')
-        for (const button of buttons) {
-          button.style.marginRight = '10px'
-        }
-      }
-      
-      function updateParaInputs(paraValues) {
-        for (let i = 1; i < 14; i++) {
-          const inputId = `para-${i}`
-          const inputValue = paraValues[i]
-          document.getElementById(inputId).value = inputValue
-        }
-      }
-      
       // Prompt按鈕功能
       function toggleOutputBoxWord(button) {
         const word = button.getAttribute('data-word')
@@ -496,7 +442,8 @@
         // 更新 Output Box 顯示目前陣列中的Prompt
         outputBox.value = wordsArray.join(',')
       }
-      
+
+      // 新增新單詞
       function addWords(input_box_id) {
         const picture_name = document.getElementById('picture_name').value
         const word_type = input_box_id === 'prompt_box' ? 'prompt' : 'negative_prompt'
@@ -514,14 +461,21 @@
         })
       }
       
+      function updateParaInputs(para_words) {
+        const paraKeys = Object.keys(PARA_COL_NAMES);
+        for (let i = 0; i < paraKeys.length; i++) {
+          const inputId = `para-${i + 1}`; // 将+1移到这里
+          document.getElementById(inputId).value = para_words[i] || ''; // 使用条件运算符来确保值不为null
+        }
+      }
+      // 參數值更新
       function updatePara() {
         const picture_name = document.getElementById('picture_name').value
       
         const updatedValues = {}
-        for (let i = 1; i <= 13; i++) {
+        for (let i = 1; i <= Object.keys(PARA_COL_NAMES).length; i++) {
           const inputId = `para-${i}`
-          const inputValue = document.getElementById(inputId).value
-          updatedValues[inputId] = inputValue
+          updatedValues[inputId] = document.getElementById(inputId).value
         }
       
         fetch('/update_para', {
@@ -564,10 +518,11 @@
             document.getElementById('negative_prompt_box').value = data.negative_words
       
             // 根据 para_words 的键值填充对应的输入框
+            let i = 1
             for (const key in data.para_words) {
               if (data.para_words.hasOwnProperty(key)) {
-                const inputId = `para-${key}`
-                document.getElementById(inputId).value = data.para_words[key]
+                document.getElementById(`para-${i}`).value = data.para_words[key]
+                i += 1
               }
             }
             document.getElementById(input_box_id).value = ''
@@ -586,27 +541,28 @@
         // 獲取相關的元素值
         const outputBoxPromptValue = document.getElementById('output_box_prompt').value
         const outputBoxNegativePromptValue = document.getElementById('output_box_negative_prompt').value
-        const stepsValue = document.getElementById('para-1').value
-        const sizeValue = document.getElementById('para-2').value
-        const seedValue = document.getElementById('para-3').value
-        const modelValue = document.getElementById('para-4').value
-        const versionValue = document.getElementById('para-5').value
-        const samplerValue = document.getElementById('para-6').value
-        const cfgScaleValue = document.getElementById('para-7').value
-        const clipSkipValue = document.getElementById('para-8').value
-        const modelHashValue = document.getElementById('para-9').value
-        const hiresStepsValue = document.getElementById('para-10').value
-        const hiresUpscaleValue = document.getElementById('para-11').value
-        const hiresUpscalerValue = document.getElementById('para-12').value
-        const denoisingStrengthValue = document.getElementById('para-13').value
       
-// 建立複製內容
+        const paraValues = {}
+      
+        // 获取各个参数的值
+        for (const key in PARA_COL_NAMES) {
+          const elementId = PARA_COL_NAMES[key]
+          const value = document.getElementById(elementId).value
+          paraValues[key] = value
+        }
+      
+        // 生成显示键和值的字符串
+        const keyValueStrings = []
+        for (const key in PARA_COL_NAMES) {
+          keyValueStrings.push(`${key}: ${paraValues[key]}`)
+        }
+      
+// 複製區
 const copyContent = `
 ${outputBoxPromptValue} 
 Negative prompt: ${outputBoxNegativePromptValue}
-Steps: ${stepsValue}, Size: ${sizeValue}, Seed: ${seedValue}, Model: ${modelValue}, Version: ${versionValue}, Sampler: ${samplerValue}, CFG scale: ${cfgScaleValue}, Clip skip: ${clipSkipValue}, Model hash: ${modelHashValue}, Hires steps: ${hiresStepsValue}, Hires upscale: ${hiresUpscaleValue}, Hires upscaler: ${hiresUpscalerValue}, Denoising strength: ${denoisingStrengthValue}
+${keyValueStrings.join(',')}
 `
-      
         // 建立一個臨時的文本區域元素，將複製內容放入其中
         const tempTextarea = document.createElement('textarea')
         tempTextarea.value = copyContent
@@ -622,7 +578,20 @@ Steps: ${stepsValue}, Size: ${sizeValue}, Seed: ${seedValue}, Model: ${modelValu
         // 顯示通知
         showNotification('已複製到剪貼簿')
       }
+
+      function copyOutput(outputBoxId) {
+        const outputBox = document.getElementById(outputBoxId)
+        outputBox.select()
+        document.execCommand('copy')
       
+        // 顯示文字提示
+        if (outputBoxId === 'output_box_prompt') {
+          showNotification('Prompt已複製到剪貼簿')
+        } else if (outputBoxId === 'output_box_negative_prompt') {
+          showNotification('Negative Prompt已複製到剪貼簿')
+        }
+      }
+
       // 全選
       function selectAllWords(divId) {
         const wordButtons = document.getElementById(divId).getElementsByTagName('button')
@@ -673,20 +642,9 @@ Steps: ${stepsValue}, Size: ${sizeValue}, Seed: ${seedValue}, Model: ${modelValu
           // 刪除圖片後重新載入頁面
           location.reload()
         })
+        return false // 阻止表單提交
       }
-      
-      function copyOutput(outputBoxId) {
-        const outputBox = document.getElementById(outputBoxId)
-        outputBox.select()
-        document.execCommand('copy')
-      
-        // 顯示文字提示
-        if (outputBoxId === 'output_box_prompt') {
-          showNotification('Prompt已複製到剪貼簿')
-        } else if (outputBoxId === 'output_box_negative_prompt') {
-          showNotification('Negative Prompt已複製到剪貼簿')
-        }
-      }
+
       function clearAll() {
         // 清空 output_box_prompt 和 output_box_negative_prompt 的值
         document.getElementById('output_box_prompt').value = ''
@@ -707,6 +665,7 @@ Steps: ${stepsValue}, Size: ${sizeValue}, Seed: ${seedValue}, Model: ${modelValu
       }
       
       // 在頁面載入時獲取預設圖片的Prompt列表
+      generateParaField('parafield')
       getPictureData()
     </script>
   </body>

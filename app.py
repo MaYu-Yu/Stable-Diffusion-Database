@@ -1,4 +1,4 @@
-import sqlite3, os
+import sqlite3, os, re
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from werkzeug.utils import secure_filename
 
@@ -8,13 +8,29 @@ app.config['UPLOAD_FOLDER'] = 'static/img/'
 upload_folder = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'])
 os.makedirs(upload_folder, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+# 相對應 PARA_COL_NAMES 、 paraId 
+PARA_COL_NAMES = {
+    'Steps': 'para-1',
+    'Size': 'para-2',
+    'Seed': 'para-3',
+    'Model': 'para-4',
+    'Version': 'para-5',
+    'Sampler': 'para-6',
+    'CFG_scale': 'para-7',
+    'Clip_skip': 'para-8',
+    'Model_hash': 'para-9',
+    'Hires_steps': 'para-10',
+    'Hires_upscale': 'para-11',
+    'Hires_upscaler': 'para-12',
+    'Denoising_strength': 'para-13'
+}
 
 # 建立SQLite資料庫連接
 def connect_db():
     return sqlite3.connect('AI_prompt.db')
 
-# 創建資料表（如果資料表不存在）
-def create_table():
+# 預先加入 default Picture
+def init_db():
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -31,46 +47,34 @@ def create_table():
                 FOREIGN KEY (picture_name) REFERENCES pictures (picture_name)
             )
         ''')
-        cursor.execute('''
+        
+        create_table_query = '''
             CREATE TABLE IF NOT EXISTS para (
                 picture_name TEXT NOT NULL,
-                Steps TEXT,
-                Size TEXT,
-                Seed TEXT,
-                Model TEXT,
-                Version TEXT,
-                Sampler TEXT,
-                CFG_scale TEXT,
-                Clip_skip TEXT,
-                Model_hash TEXT,
-                Hires_steps TEXT,
-                Hires_upscale TEXT,
-                Hires_upscaler TEXT,
-                Denoising_strength TEXT,
-                FOREIGN KEY (picture_name) REFERENCES pictures (picture_name)
-            )
-        ''')
+        '''
+        # 使用PARA_COL_NAMES的key建立
+        for key in PARA_COL_NAMES.keys():
+            create_table_query += f'{key} TEXT, '
+        # 增加外來鍵
+        create_table_query += '''
+            FOREIGN KEY (picture_name) REFERENCES pictures (picture_name)
+        )
+        '''
 
-        conn.commit()
-
-# 預先加入 default Picture
-def init_db():
-    with connect_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('CREATE TABLE IF NOT EXISTS pictures (picture_name TEXT NOT NULL UNIQUE PRIMARY KEY, picture_path TEXT)')
+        # 执行创建表格的查询
+        cursor.execute(create_table_query)
         
         # 檢查是否已經存在圖片
         cursor.execute('SELECT COUNT(*) FROM pictures')
         count = cursor.fetchone()[0]
         if count == 0:
-            cursor.execute('INSERT INTO pictures (picture_name) VALUES (?)', ('default Picture',))
+            cursor.execute('INSERT INTO pictures (picture_name) VALUES (?)', ('default',)) # 預設一張圖片 以防出錯
 
         conn.commit()
 
 # 初始化資料庫
 @app.before_request
 def setup():
-    create_table()
     init_db()
 
 # 主頁
@@ -82,10 +86,11 @@ def index():
         picture_names = [row[0] for row in cursor.fetchall()]
         
         cursor.execute('SELECT picture_path FROM pictures')
-    return render_template('index.html', picture_names=picture_names)
+    return render_template('index.html', picture_names=picture_names, PARA_COL_NAMES=PARA_COL_NAMES)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 # 上傳圖片
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -94,7 +99,6 @@ def upload():
         file = request.files['picture']
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            # 去掉static目录，只保存到UPLOAD_FOLDER
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
 
@@ -103,7 +107,7 @@ def upload():
                 cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (filename, selected_picture))
                 conn.commit()
 
-            return redirect(url_for('index'))  # 重定向回主页
+            return render_template('index.html', picture_names=[selected_picture])
     return redirect(url_for('index'))
 
 # 獲取圖片資料
@@ -112,22 +116,22 @@ def get_picture_data():
     picture_name = request.form['picture_name']
     with connect_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT word FROM words WHERE picture_name = ? AND type = ?', (picture_name, 'prompt'))
+        cursor.execute('SELECT word FROM words WHERE picture_name = ? AND type = ?', (picture_name, 'prompt')) # 獲取 prompt
         prompts = [row[0] for row in cursor.fetchall()]
 
-        cursor.execute('SELECT word FROM words WHERE picture_name = ? AND type = ?', (picture_name, 'negative_prompt'))
+        cursor.execute('SELECT word FROM words WHERE picture_name = ? AND type = ?', (picture_name, 'negative_prompt')) # 獲取 negative_prompt
         negative_prompts = [row[0] for row in cursor.fetchall()]
         
-        cursor.execute('SELECT * FROM para WHERE picture_name = ?', (picture_name,))
+        cursor.execute('SELECT * FROM para WHERE picture_name = ?', (picture_name,)) # 獲取 para
         para_rows = cursor.fetchall()
         
-        cursor.execute('SELECT picture_path FROM pictures WHERE picture_name = ?', (picture_name,))
+        cursor.execute('SELECT picture_path FROM pictures WHERE picture_name = ?', (picture_name,)) # 獲取 圖片位置
         picture_path = cursor.fetchall()
-
+        
         if len(para_rows) != 0:
-            para_words = para_rows[0]
+            para_words = para_rows[0][1:]
         else:
-            para_words = None
+            para_words = []
 
     return jsonify({
         'prompts': prompts,
@@ -135,62 +139,42 @@ def get_picture_data():
         'para_words': para_words,
         'picture_path': picture_path
     })
-    
+
+# 更新參數至資料庫
 @app.route('/update_para', methods=['POST'])
 def update_para():
     picture_name = request.json['picture_name']
     updated_values = request.json['updated_values']
+    
     with connect_db() as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT picture_name FROM para WHERE picture_name = ?', (picture_name,))
         picture_name_is_exists = cursor.fetchone()
-        if picture_name_is_exists is not None:  
-            update_query = '''
-                UPDATE para
-                SET Steps=?, Size=?, Seed=?, Model=?, Version=?, Sampler=?,
-                    CFG_scale=?, Clip_skip=?, Model_hash=?, Hires_steps=?,
-                    Hires_upscale=?, Hires_upscaler=?, Denoising_strength=?
-                WHERE picture_name=?
-            '''
-            cursor.execute(update_query, (
-                updated_values.get('para-1', ''),
-                updated_values.get('para-2', ''),
-                updated_values.get('para-3', ''),
-                updated_values.get('para-4', ''),
-                updated_values.get('para-5', ''),
-                updated_values.get('para-6', ''),
-                updated_values.get('para-7', ''),
-                updated_values.get('para-8', ''),
-                updated_values.get('para-9', ''),
-                updated_values.get('para-10', ''),
-                updated_values.get('para-11', ''),
-                updated_values.get('para-12', ''),
-                updated_values.get('para-13', ''),
-                picture_name
-            ))
-        else: 
-            insert_query = '''
-                INSERT INTO para (picture_name, Steps, Size, Seed, Model, Version, Sampler,
-                    CFG_scale, Clip_skip, Model_hash, Hires_steps,
-                    Hires_upscale, Hires_upscaler, Denoising_strength)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            '''
-            cursor.execute(insert_query, (
-                picture_name,
-                updated_values.get('para-1', ''),
-                updated_values.get('para-2', ''),
-                updated_values.get('para-3', ''),
-                updated_values.get('para-4', ''),
-                updated_values.get('para-5', ''),
-                updated_values.get('para-6', ''),
-                updated_values.get('para-7', ''),
-                updated_values.get('para-8', ''),
-                updated_values.get('para-9', ''),
-                updated_values.get('para-10', ''),
-                updated_values.get('para-11', ''),
-                updated_values.get('para-12', ''),
-                updated_values.get('para-13', '')
-            ))
+        
+        if picture_name_is_exists is not None:
+            # 更新para query
+            update_query = 'UPDATE para SET '
+            update_values = [] # query使用參數
+            for col_name, para_key in PARA_COL_NAMES.items():
+                value = updated_values.get(para_key, '') # 前端para id
+                update_query += f'{col_name}=?, '
+                update_values.append(value)
+
+            update_query = update_query.rstrip(', ')
+            update_query += ' WHERE picture_name=?'
+            update_values.append(picture_name)
+
+            cursor.execute(update_query, update_values)
+        else:
+            # 插入para query
+            insert_query = 'INSERT INTO para (picture_name, ' + ', '.join(PARA_COL_NAMES.keys()) + ') VALUES (?, ' + ', '.join(['?'] * len(PARA_COL_NAMES)) + ')'
+            insert_values = [picture_name]
+
+            for para_key in PARA_COL_NAMES.values():
+                insert_values.append(updated_values.get(para_key, ''))
+
+            cursor.execute(insert_query, insert_values)
+
         conn.commit()
 
     return jsonify({})
@@ -222,23 +206,32 @@ def add_picture():
     return jsonify({
         'picture_name':picture_name
     })
+    
 # 刪除圖片
 @app.route('/delete_picture', methods=['POST'])
 def delete_picture():
     picture_name = request.form['picture_name']
     with connect_db() as conn:
         cursor = conn.cursor()
-        # 先刪除圖片下的prompt
+        cursor.execute('SELECT picture_path FROM pictures WHERE picture_name = ?', (picture_name,))
+        filepath = cursor.fetchone()[0]
+        # 刪除資料庫相關資料
         cursor.execute('DELETE FROM words WHERE picture_name = ?', (picture_name,))
-        # 先刪除圖片下的para
         cursor.execute('DELETE FROM para WHERE picture_name = ?', (picture_name,))
-        # 刪除圖片
         cursor.execute('DELETE FROM pictures WHERE picture_name = ?', (picture_name,))
         conn.commit()
-
+        
+        if filepath is not None:
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filepath)) # 刪除圖片
+            except OSError:
+                # 刪除失敗
+                pass
+        else:
+            return 'Picture not found'
     return 'success'
-    
-# 新增單詞
+
+# Prompt字串整理
 def word_split(text):
     words = []
     current_part = ''
@@ -266,7 +259,6 @@ def word_split(text):
 
     if current_part.strip():
         words.append(current_part.strip())
-    
     return words
 @app.route('/add_words', methods=['POST'])
 def add_words():
@@ -285,7 +277,7 @@ def add_words():
         # 加入新的單詞
         new_words = []
         for word in words:
-            word = word.strip()  # 清除最前方和最後方的空格
+            word = word.strip()
             if word and word not in existing_words:
                 new_words.append((picture_name, word_type, word))
                 existing_words.add(word)
@@ -309,39 +301,61 @@ def remove_word():
         conn.commit()
 
     return 'success'
+
 # 一鍵匯入
 @app.route('/import_words', methods=['POST'])
 def import_words():
     words = request.form['words']
     if words:  
-        # 分成三部分 Prompt、Negative Prompt、參數
         prompt_words = ""
         negative_words = []
         para_words = {}
+        non_para_words = []
         
+        # 分成四部分 Prompt、Negative Prompt、參數、非參數值
         if "Negative prompt:" in words:
-            prompt_part, rest = words.split("Negative prompt:", 1)
-            prompt_words = prompt_part.strip()
+            prompt_part, negative_part = words.split("Negative prompt:", 1)
+            prompt_words = word_split(prompt_part)
             
-            if "Steps:" in rest:
-                negative_part, para_temp = rest.split("Steps:", 1)
+            if "Steps:" in negative_part:
+                negative_part, para_part = negative_part.split("Steps:", 1)
                 negative_words = word_split(negative_part)
+                para_part = "Steps:" + para_part
+                para_part = para_part.split(',')
                 
-                para_temp = "Steps:" + para_temp
-                para_temp = para_temp.split(',')
-                for i, temp in enumerate(para_temp, start=1):
-                    _, value = temp.split(":")
-                    para_words[str(i)] = value.strip()
+                para_words = {}
+                non_para_words = []
+
+                special_characters = '()<>{}[]' # 可能出現符號
+                for item in para_part:
+                    if ':' in item and not any(char in item for char in special_characters.replace(':', '')):
+                        key, value = item.split(':', 1) # 參數輸入類型 key:value 
+                        para_words[key.strip()] = value.strip()
+                        
+                    else:
+                        non_para_words.append(item)
+                para_values = []
+                
+                # 前端不需要key
+                for col_name in PARA_COL_NAMES:
+                    col_name = col_name.replace('_', ' ')
+                    if col_name in para_words:
+                        para_values.append(para_words[col_name])
+                    else:
+                        para_values.append(None) 
+                        
         return jsonify({
             'prompt_words': prompt_words,
             'negative_words': negative_words,
-            'para_words': para_words
+            'para_words': para_values,
+            'non_para_words': non_para_words
         })
         
     return jsonify({
         'prompt_words': '',
         'negative_words': [],
-        'para_words': {}
+        'para_words': {},
+        'non_para_words': []
     })
 
 if __name__ == '__main__':
