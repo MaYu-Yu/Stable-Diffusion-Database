@@ -1,5 +1,5 @@
-# Stable Diffusion WebUI 教學
-
+# Stable-Diffusion-Database
+- 用於儲存AI畫圖的單詞以及等參數，可以直接使用google翻譯整頁就能理解參數內容來學習了，並且記錄自己AI畫出的照片數據。
 * ## 架設環境
     ### 測試環境 
     - Windows 11 22H2
