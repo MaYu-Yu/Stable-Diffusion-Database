@@ -103,10 +103,8 @@ def upload():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-            # 初始化 unique_filename
-            unique_filename = None
-
+            
+            unique_filename = filename
             # 生成唯一的文件名
             suffix = 1
             while os.path.exists(filepath):
@@ -115,14 +113,25 @@ def upload():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                 suffix += 1
 
+            # 舊圖片查詢
+            old_filepath = None
+            with connect_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT picture_path FROM pictures WHERE picture_name = ?', (selected_picture,))
+                old_filepath = cursor.fetchone()[0]
+            # 刪除舊圖片
+            if old_filepath:
+                old_filepath = os.path.join(app.config['UPLOAD_FOLDER'], old_filepath)
+                if os.path.exists(old_filepath):
+                    os.remove(old_filepath)
+
             file.save(filepath)
 
-            # 检查是否成功生成唯一的文件名
-            if unique_filename is not None:
-                with connect_db() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (unique_filename, selected_picture))
-                    conn.commit()
+            # 更新数据库中的文件路径
+            with connect_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (unique_filename, selected_picture))
+                conn.commit()
 
             picture_names = get_picture_names()
             return render_template('index.html', picture_names=picture_names, selected_picture=selected_picture)
@@ -238,8 +247,7 @@ def delete_picture():
         conn.commit()
 
     if filepath is not None:
-        # 絕對路徑刪除
-        file_path_to_delete = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], filepath))
+        file_path_to_delete = os.path.join(app.config['UPLOAD_FOLDER'], filepath)
         try:
             os.remove(file_path_to_delete)  # 刪除
         except OSError as e:
