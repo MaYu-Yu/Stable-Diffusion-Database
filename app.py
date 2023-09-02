@@ -104,6 +104,9 @@ def upload():
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
+            # 初始化 unique_filename
+            unique_filename = None
+
             # 生成唯一的文件名
             suffix = 1
             while os.path.exists(filepath):
@@ -114,10 +117,13 @@ def upload():
 
             file.save(filepath)
 
-            with connect_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (unique_filename, selected_picture))
-                conn.commit()
+            # 检查是否成功生成唯一的文件名
+            if unique_filename is not None:
+                with connect_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (unique_filename, selected_picture))
+                    conn.commit()
+
             picture_names = get_picture_names()
             return render_template('index.html', picture_names=picture_names, selected_picture=selected_picture)
     return redirect(url_for('index'))
