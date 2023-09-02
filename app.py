@@ -103,11 +103,20 @@ def upload():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+            # 生成唯一的文件名
+            suffix = 1
+            while os.path.exists(filepath):
+                base_name, ext = os.path.splitext(filename)
+                unique_filename = f"{base_name}_{suffix}{ext}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                suffix += 1
+
             file.save(filepath)
 
             with connect_db() as conn:
                 cursor = conn.cursor()
-                cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (filename, selected_picture))
+                cursor.execute('UPDATE pictures SET picture_path = ? WHERE picture_name = ?', (unique_filename, selected_picture))
                 conn.commit()
             picture_names = get_picture_names()
             return render_template('index.html', picture_names=picture_names, selected_picture=selected_picture)
