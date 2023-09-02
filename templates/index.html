@@ -631,7 +631,7 @@ ${keyValueStrings.join(',')}
           body: `picture_name=${newPictureName}`
         }).then(() => {
           // 更新圖片後重新載入頁面
-          location.reload()
+          window.location.href = '/';
         })
       
         return false // 阻止表單提交
@@ -648,7 +648,7 @@ ${keyValueStrings.join(',')}
           body: `picture_name=${picture_name}`
         }).then(() => {
           // 刪除圖片後重新載入頁面
-          location.reload()
+          window.location.href = '/';
         })
         return false // 阻止表單提交
       }

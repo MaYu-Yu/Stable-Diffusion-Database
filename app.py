@@ -238,11 +238,13 @@ def delete_picture():
         conn.commit()
 
     if filepath is not None:
+        # 絕對路徑刪除
+        file_path_to_delete = os.path.abspath(os.path.join(app.config['UPLOAD_FOLDER'], filepath))
         try:
-            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], filepath)) # 刪除圖片
-        except OSError:
-            # 刪除失敗
-            pass
+            os.remove(file_path_to_delete)  # 刪除
+        except OSError as e:
+            print("Error deleting file:", str(e))
+
     picture_names = get_picture_names()
     return render_template('index.html', picture_names=picture_names, selected_picture='')
 
