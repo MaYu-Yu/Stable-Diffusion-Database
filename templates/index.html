@@ -179,7 +179,7 @@
     <div class="row">
       <div class="col-md-12">
         <div class="form-group">
-          <h4 class="mt-4">一鍵複製：(全選)</h4>
+          <h4 class="mt-4">一鍵複製：</h4>
           <div class="input-group">
             <input type="text" id="output_box_all" class="form-control" readonly />
             <div class="input-group-append">
@@ -544,8 +544,8 @@
       
       // 一鍵複製
       function copyAll(outputElementId) {
-        document.getElementById('selectAll_negative_prompt_words_btn').click()
-        document.getElementById('selectAll_prompt_words_btn').click()
+        // document.getElementById('selectAll_negative_prompt_words_btn').click()
+        // document.getElementById('selectAll_prompt_words_btn').click()
         // 獲取相關的元素值
         const outputBoxPromptValue = document.getElementById('output_box_prompt').value
         const outputBoxNegativePromptValue = document.getElementById('output_box_negative_prompt').value
